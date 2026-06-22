@@ -300,8 +300,12 @@ html, body {
   display: grid; grid-template-columns: repeat(6, 1fr);
   pointer-events: none;
 }
-.tl-grid span { border-left: 1px solid var(--line-soft); }
-.tl-grid span:first-child { border-left: none; }
+/* each month column = a strong gridline; the two fortnight halves inside
+   are separated by a fainter dotted line */
+.tl-grid .tl-col { border-left: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; }
+.tl-grid .tl-col:first-child { border-left: none; }
+.tl-grid .tl-col i { display: block; }
+.tl-grid .tl-col i:last-child { border-left: 1px dashed #edf0f3; }
 .tl-bar {
   position: absolute;
   top: 50%; transform: translateY(-50%);
@@ -324,6 +328,12 @@ html, body {
 }
 .tl-bar .bar-dep { margin-left: 6px; font-weight: 700; opacity: .85; }
 .tl-bar.moved { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3px rgba(0,0,0,.35); }
+/* a single-fortnight bar is narrow: keep the label readable and the
+   handles slim so the body stays grabbable */
+.tl-bar.fortnight { font-size: 10px; }
+.tl-bar.fortnight .bar-handle { width: 6px; }
+.tl-bar.fortnight .bar-body { padding: 0 2px; }
+.tl-bar.fortnight .bar-dep { display: none; }
 
 /* resize handles at each edge */
 .tl-bar .bar-handle {

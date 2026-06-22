@@ -205,29 +205,75 @@ function saveCollapsed() { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(sta
 function getStatus(id) { return state.status[id] || "not-started"; }
 function setStatus(id, s) { state.status[id] = s; saveStatus(); }
 
-/* Effective schedule: a saved drag override, else the task's original months.
-   Returns { startIdx, endIdx, startName, endName, moved }. */
+/* ---------------------- scheduling (fortnights) ------------------
+   The timeline is divided into half-month "fortnight" slots so blocks
+   can be as short as 2 weeks. There are HALVES_PER (=2) per month and
+   TOTAL_HALVES across the whole window.
+   A half-position h:  month = floor(h/2), half = h%2 (0 = 1st half).
+   A bar occupies inclusive half-slots [startHalf .. endHalf].          */
+const HALVES_PER = 2;
+const TOTAL_HALVES = () => MONTHS.length * HALVES_PER;
+
+/* A task's ORIGINAL position in half-slots (full months => both halves). */
+function baseHalves(t) {
+  return { startHalf: MONTH_INDEX(t.start) * HALVES_PER,
+           endHalf: MONTH_INDEX(t.end) * HALVES_PER + (HALVES_PER - 1) };
+}
+/* Read a stored override, migrating the old month-based format
+   ({start,end} as month indices) to half-slots transparently. */
+function storedHalves(o) {
+  if (!o) return null;
+  if (o.unit === "half") return { startHalf: o.start, endHalf: o.end };
+  // legacy month-index override -> convert to full-month half range
+  return { startHalf: o.start * HALVES_PER, endHalf: o.end * HALVES_PER + (HALVES_PER - 1) };
+}
+
+/* Effective schedule for a task. Returns half positions, derived month
+   indices (for the month filter), and human-readable labels. */
 function getSchedule(t) {
-  const o = state.schedule[t.id];
-  const startIdx = o ? o.start : MONTH_INDEX(t.start);
-  const endIdx   = o ? o.end   : MONTH_INDEX(t.end);
+  const ov = storedHalves(state.schedule[t.id]);
+  const base = baseHalves(t);
+  const startHalf = ov ? ov.startHalf : base.startHalf;
+  const endHalf   = ov ? ov.endHalf   : base.endHalf;
+  const startIdx = Math.floor(startHalf / HALVES_PER);
+  const endIdx   = Math.floor(endHalf / HALVES_PER);
   return {
-    startIdx, endIdx,
+    startHalf, endHalf, startIdx, endIdx,
     startName: MONTHS[startIdx], endName: MONTHS[endIdx],
-    moved: !!o
+    startLabel: halfLabel(startHalf), endLabel: halfLabel(endHalf),
+    rangeLabel: halfRangeLabel(startHalf, endHalf),
+    halves: endHalf - startHalf + 1,            // duration in fortnights
+    moved: !!ov
   };
 }
-/* Move a task so it starts at newStartIdx, preserving its duration, clamped. */
-function moveTask(t, newStartIdx) {
-  const s = getSchedule(t);
-  const dur = s.endIdx - s.startIdx;
-  let start = Math.max(0, Math.min(newStartIdx, MONTHS.length - 1 - dur));
-  const end = start + dur;
-  // if back to original, drop the override to keep storage clean
-  if (start === MONTH_INDEX(t.start) && end === MONTH_INDEX(t.end)) {
+/* "June (1st half)" / "June (2nd half)" */
+function halfLabel(h) {
+  const m = MONTHS[Math.floor(h / HALVES_PER)];
+  return (h % HALVES_PER === 0) ? `${m} (1st half)` : `${m} (2nd half)`;
+}
+/* Compact range label, collapsing whole months. e.g. "June–July",
+   "June (2nd half)", "June (2nd half) – August (1st half)". */
+function halfRangeLabel(s, e) {
+  const sMonth = Math.floor(s / HALVES_PER), eMonth = Math.floor(e / HALVES_PER);
+  const wholeStart = s % HALVES_PER === 0;
+  const wholeEnd = e % HALVES_PER === HALVES_PER - 1;
+  if (wholeStart && wholeEnd) {
+    return sMonth === eMonth ? MONTHS[sMonth] : `${MONTHS[sMonth]}–${MONTHS[eMonth]}`;
+  }
+  const half = h => (h % HALVES_PER === 0 ? "1st half" : "2nd half");
+  const part = (month, h) => `${MONTHS[month]} (${half(h)})`;
+  if (s === e) return part(sMonth, s);
+  const left = wholeStart ? MONTHS[sMonth] : part(sMonth, s);
+  const right = wholeEnd ? MONTHS[eMonth] : part(eMonth, e);
+  return `${left} – ${right}`;
+}
+/* Persist an override in half-slots, dropping it if it matches the base. */
+function setHalves(t, startHalf, endHalf) {
+  const base = baseHalves(t);
+  if (startHalf === base.startHalf && endHalf === base.endHalf) {
     delete state.schedule[t.id];
   } else {
-    state.schedule[t.id] = { start, end };
+    state.schedule[t.id] = { unit: "half", start: startHalf, end: endHalf };
   }
   saveSchedule();
 }
@@ -367,7 +413,7 @@ function renderTimeline() {
   });
   if (!vis.length) tl.appendChild(el("div", "view-empty", "No tasks match the current filters."));
   const hint = el("div", "tl-hint",
-    `Tip: drag a bar to move it to another month, or drag its left / right edge to change its duration. Changes are saved automatically. Click a bar to open its detail.`);
+    `Tip: drag a bar to move it, or drag its left / right edge to change its duration. Bars snap to 2-week blocks (each month has an early and late half), so you can shorten a task to a single fortnight. Changes save automatically. Click a bar to open its detail.`);
   root.appendChild(hint);
   root.appendChild(tl);
   return root;
@@ -376,9 +422,9 @@ function renderTimeline() {
 function timelineRow(t, e) {
   const row = el("div", "tl-row");
   const sch = getSchedule(t);
-  const a = sch.startIdx, b = sch.endIdx;
-  const left = (a / 6) * 100;
-  const width = ((b - a + 1) / 6) * 100;
+  const total = TOTAL_HALVES();
+  const left = (sch.startHalf / total) * 100;
+  const width = (sch.halves / total) * 100;
 
   const label = el("div", "tl-label");
   label.innerHTML = `<span class="tl-id">${t.id}</span>
@@ -392,10 +438,11 @@ function timelineRow(t, e) {
 
   const track = el("div", "tl-track");
   const grid = el("div", "tl-grid");
-  grid.innerHTML = "<span></span>".repeat(6);
+  // 6 month columns, each split into two fortnight sub-cells
+  grid.innerHTML = MONTHS.map(() => `<span class="tl-col"><i></i><i></i></span>`).join("");
   track.appendChild(grid);
 
-  const bar = el("div", "tl-bar" + (sch.moved ? " moved" : ""));
+  const bar = el("div", "tl-bar" + (sch.moved ? " moved" : "") + (sch.halves === 1 ? " fortnight" : ""));
   bar.style.left = left + "%";
   bar.style.width = width + "%";
   bar.style.background = e.colour;
@@ -404,7 +451,7 @@ function timelineRow(t, e) {
     `<span class="bar-handle bar-handle-l" title="Drag to change start"></span>` +
     `<span class="bar-body">${t.id}${t.deps.length ? `<span class="bar-dep" title="Depends on ${esc(t.depText)}">⇠</span>` : ""}</span>` +
     `<span class="bar-handle bar-handle-r" title="Drag to change end"></span>`;
-  bar.title = `${t.name} (${sch.startName}${sch.startName !== sch.endName ? "–" + sch.endName : ""}) — drag to move, drag edges to resize`;
+  bar.title = `${t.name} (${sch.rangeLabel}) — drag to move, drag edges to resize. Snaps to 2-week blocks.`;
   enableBarDrag(bar, track, t);
   track.appendChild(bar);
 
@@ -413,25 +460,27 @@ function timelineRow(t, e) {
 }
 
 /* Drag a timeline bar to move it (preserve duration) or drag an edge to
-   resize it. Snaps to whole months. Saves to localStorage and re-renders. */
+   resize it. Snaps to 2-week (half-month) fortnight slots. Minimum bar
+   length is one fortnight. Saves to localStorage and re-renders. */
 function enableBarDrag(bar, track, t) {
-  let mode = null;        // "move" | "resize-l" | "resize-r"
+  const total = TOTAL_HALVES();
+  const maxHalf = total - 1;
+  let mode = null;          // "move" | "resize-l" | "resize-r"
   let startX = 0;
   let origStart = 0, origEnd = 0;
-  let monthPx = 0;
+  let halfPx = 0;
   let moved = false;
 
   const onDown = (ev) => {
-    // ignore right-click
     if (ev.button !== undefined && ev.button !== 0) return;
     const handle = ev.target.closest(".bar-handle");
     mode = handle
       ? (handle.classList.contains("bar-handle-l") ? "resize-l" : "resize-r")
       : "move";
     const s = getSchedule(t);
-    origStart = s.startIdx; origEnd = s.endIdx;
+    origStart = s.startHalf; origEnd = s.endHalf;
     startX = (ev.touches ? ev.touches[0].clientX : ev.clientX);
-    monthPx = track.getBoundingClientRect().width / 6;
+    halfPx = track.getBoundingClientRect().width / total;   // px per fortnight
     moved = false;
     document.body.classList.add("dragging-bar");
     bar.classList.add("grabbing");
@@ -444,21 +493,21 @@ function enableBarDrag(bar, track, t) {
 
   const onMove = (ev) => {
     const clientX = (ev.touches ? ev.touches[0].clientX : ev.clientX);
-    const deltaMonths = Math.round((clientX - startX) / monthPx);
-    if (deltaMonths !== 0) moved = true;
+    const deltaHalves = Math.round((clientX - startX) / halfPx);
+    if (deltaHalves !== 0) moved = true;
     let ns = origStart, ne = origEnd;
     if (mode === "move") {
       const dur = origEnd - origStart;
-      ns = Math.max(0, Math.min(origStart + deltaMonths, MONTHS.length - 1 - dur));
+      ns = Math.max(0, Math.min(origStart + deltaHalves, maxHalf - dur));
       ne = ns + dur;
     } else if (mode === "resize-l") {
-      ns = Math.max(0, Math.min(origStart + deltaMonths, origEnd)); // can't pass end
+      ns = Math.max(0, Math.min(origStart + deltaHalves, origEnd)); // min 1 fortnight, can't pass end
     } else if (mode === "resize-r") {
-      ne = Math.min(MONTHS.length - 1, Math.max(origEnd + deltaMonths, origStart)); // can't pass start
+      ne = Math.min(maxHalf, Math.max(origEnd + deltaHalves, origStart)); // min 1 fortnight, can't pass start
     }
-    // live preview
-    bar.style.left = (ns / 6) * 100 + "%";
-    bar.style.width = ((ne - ns + 1) / 6) * 100 + "%";
+    bar.style.left = (ns / total) * 100 + "%";
+    bar.style.width = ((ne - ns + 1) / total) * 100 + "%";
+    bar.classList.toggle("fortnight", ne - ns === 0);
     bar.dataset.pendStart = ns;
     bar.dataset.pendEnd = ne;
     if (ev.cancelable) ev.preventDefault();
@@ -472,17 +521,10 @@ function enableBarDrag(bar, track, t) {
     document.body.classList.remove("dragging-bar");
     bar.classList.remove("grabbing");
     if (moved && bar.dataset.pendStart !== undefined) {
-      const ns = +bar.dataset.pendStart, ne = +bar.dataset.pendEnd;
-      if (ns === MONTH_INDEX(t.start) && ne === MONTH_INDEX(t.end)) {
-        delete state.schedule[t.id];
-      } else {
-        state.schedule[t.id] = { start: ns, end: ne };
-      }
-      saveSchedule();
+      setHalves(t, +bar.dataset.pendStart, +bar.dataset.pendEnd);
       render();
     } else {
-      // treated as a click: open detail
-      openDetail(t.id);
+      openDetail(t.id);   // treated as a click
     }
     mode = null;
   };
@@ -631,7 +673,7 @@ function renderEpics() {
           <span class="etr-id">${t.id}</span>
           <span class="etr-name">${esc(t.name)} ${t.roles.map(roleBadge).join("")}
           ${t.critical ? '<span class="crit-flag">Critical dep</span>' : ''}</span>
-          <span class="etr-months">${(s => s.startName === s.endName ? s.startName : s.startName + "–" + s.endName)(getSchedule(t))}${getSchedule(t).moved ? ' <span class="moved-flag">edited</span>' : ''}</span>`;
+          <span class="etr-months">${getSchedule(t).rangeLabel}${getSchedule(t).moved ? ' <span class="moved-flag">edited</span>' : ''}</span>`;
         row.onclick = () => openDetail(t.id);
         body.appendChild(row);
       });
@@ -765,7 +807,7 @@ function taskJiraText(t) {
     `${t.id} — ${t.name}`,
     `Epic: ${t.epic} (${epicById(t.epic).title})`,
     `Owner: ${t.owner}`,
-    `Start: ${sch.startName}    End: ${sch.endName}` + (sch.moved ? `    (rescheduled from ${t.start}–${t.end})` : ``),
+    `Start: ${sch.startLabel}    End: ${sch.endLabel}    (${sch.rangeLabel})` + (sch.moved ? `    [rescheduled from ${t.start}–${t.end}]` : ``),
     `Dependencies: ${t.depText}`,
     ``,
     `Description:`,
@@ -897,6 +939,9 @@ function openDetail(id) {
     : `<h2>${esc(t.name)}</h2>`;
 
   const monthOptions = (sel) => MONTHS.map(m => `<option ${m === sel ? "selected" : ""}>${m}</option>`).join("");
+  // fortnight options: value = half-slot index 0..11, label e.g. "June (1st half)"
+  const halfOptions = (selHalf) => Array.from({ length: TOTAL_HALVES() }, (_, h) =>
+    `<option value="${h}" ${h === selHalf ? "selected" : ""}>${halfLabel(h)}</option>`).join("");
 
   c.innerHTML = `
     <div class="detail-eyebrow">${e.id} · ${esc(e.title)}</div>
@@ -916,15 +961,16 @@ function openDetail(id) {
       ${editing ? `
         <div class="detail-row"><span class="dr-label">Owner</span><input class="edit-input inline" id="edit-task-owner" value="${esc(t.owner)}" /></div>
         <div class="detail-row"><span class="dr-label">Roles</span><span class="dr-val" id="edit-task-roles">${["ux","sme","dev","gov"].map(r => `<label class="role-pick"><input type="checkbox" value="${r}" ${t.roles.includes(r) ? "checked" : ""}/> ${ROLES[r].short}</label>`).join(" ")}</span></div>
-        <div class="detail-row"><span class="dr-label">Start</span><select class="edit-input inline" id="edit-task-start">${monthOptions(sch.startName)}</select></div>
-        <div class="detail-row"><span class="dr-label">End</span><select class="edit-input inline" id="edit-task-end">${monthOptions(sch.endName)}</select></div>
+        <div class="detail-row"><span class="dr-label">Start</span><select class="edit-input inline" id="edit-task-start">${halfOptions(sch.startHalf)}</select></div>
+        <div class="detail-row"><span class="dr-label">End</span><select class="edit-input inline" id="edit-task-end">${halfOptions(sch.endHalf)}</select></div>
         <div class="detail-row"><span class="dr-label">Dependencies</span><input class="edit-input inline" id="edit-task-deptext" value="${esc(t.depText)}" placeholder="e.g. Task 1.1 complete" /></div>
         <div class="detail-row"><span class="dr-label">Critical</span><label class="role-pick"><input type="checkbox" id="edit-task-critical" ${t.critical ? "checked" : ""}/> flag as critical dependency</label></div>
       ` : `
         <div class="detail-row"><span class="dr-label">Owner</span><span class="dr-val">${esc(t.owner)}</span></div>
         <div class="detail-row"><span class="dr-label">Role(s)</span><span class="dr-val">${t.roles.map(roleBadge).join(" ")}</span></div>
-        <div class="detail-row"><span class="dr-label">Start</span><span class="dr-val">${sch.startName} 2026</span></div>
-        <div class="detail-row"><span class="dr-label">End</span><span class="dr-val">${sch.endName} 2026</span></div>
+        <div class="detail-row"><span class="dr-label">Start</span><span class="dr-val">${sch.startLabel} 2026</span></div>
+        <div class="detail-row"><span class="dr-label">End</span><span class="dr-val">${sch.endLabel} 2026</span></div>
+        <div class="detail-row"><span class="dr-label">Span</span><span class="dr-val">${sch.rangeLabel} · ${sch.halves} fortnight${sch.halves !== 1 ? "s" : ""}</span></div>
         ${sch.moved ? `<div class="detail-row"><span class="dr-label">Original</span><span class="dr-val" style="font-weight:500;color:var(--muted)">${t.start}–${t.end} · <span class="dep-link" id="detail-reset-sched">reset to original</span></span></div>` : ``}
         <div class="detail-section" style="margin-top:14px"><h4>Dependencies</h4><div>${depsHtml}</div></div>
       `}
@@ -970,14 +1016,16 @@ function openDetail(id) {
       };
     });
     const startSel = c.querySelector("#edit-task-start"), endSel = c.querySelector("#edit-task-end");
-    const applyMonths = () => {
-      let s = MONTH_INDEX(startSel.value), en = MONTH_INDEX(endSel.value);
-      if (en < s) en = s;
-      editTask(t.id, { start: MONTHS[s], end: MONTHS[en] });
-      delete state.schedule[t.id]; saveSchedule(); // base months changed; clear drag override
-      render();
+    const applyHalves = (changed) => {
+      let s = +startSel.value, en = +endSel.value;
+      // keep start <= end; nudge the other field if they cross
+      if (en < s) { if (changed === "start") en = s; else s = en; }
+      startSel.value = s; endSel.value = en;
+      setHalves(t, s, en);   // persists as a fortnight-precise schedule override
+      render(); openDetail(t.id);
     };
-    startSel.onchange = applyMonths; endSel.onchange = applyMonths;
+    startSel.onchange = () => applyHalves("start");
+    endSel.onchange = () => applyHalves("end");
 
     rebindList(c, "#edit-deliverables", () => taskById(t.id).deliverables, next => editTask(t.id, { deliverables: next }), "Deliverable");
     rebindList(c, "#edit-acceptance", () => taskById(t.id).acceptance, next => editTask(t.id, { acceptance: next }), "Acceptance criterion");
@@ -1031,13 +1079,13 @@ function render() {
 
 /* ============================== CSV ============================= */
 function exportCSV() {
-  const headers = ["Task ID", "Task Name", "Epic", "Epic Title", "Owner", "Roles", "Start", "End", "Original Start", "Original End", "Rescheduled", "Status", "Critical", "Dependencies", "Deliverables", "Acceptance Criteria"];
+  const headers = ["Task ID", "Task Name", "Epic", "Epic Title", "Owner", "Roles", "Start", "End", "Span", "Fortnights", "Original Start", "Original End", "Rescheduled", "Status", "Critical", "Dependencies", "Deliverables", "Acceptance Criteria"];
   const rows = TASKS.map(t => {
     const s = getSchedule(t);
     return [
       t.id, t.name, t.epic, epicById(t.epic).title, t.owner,
       t.roles.map(r => ROLES[r].name).join("; "),
-      s.startName, s.endName, t.start, t.end, s.moved ? "Yes" : "No",
+      s.startLabel, s.endLabel, s.rangeLabel, s.halves, t.start, t.end, s.moved ? "Yes" : "No",
       statusLabel(getStatus(t.id)), t.critical ? "Yes" : "No",
       t.depText, t.deliverables.join(" | "), t.acceptance.join(" | ")
     ].map(csvCell).join(",");
