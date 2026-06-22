@@ -11,8 +11,10 @@ const ROLES = {
   gov:  { id: "gov",  name: "Shared Governance",      owner: "UX + SME + Dev",                  short: "GOV" }
 };
 
-/* Each Epic carries a colour used consistently across all views. */
-const EPICS = [
+/* Each Epic carries a colour used consistently across all views.
+   BASE_* hold the original delivery plan. The app builds mutable working
+   copies (EPICS / TASKS) by merging these with the user's saved edits. */
+const BASE_EPICS = [
   {
     id: "E0",
     title: "Design Operations & Governance",
@@ -89,7 +91,7 @@ const EPICS = [
    role     = primary swimlane(s) this task sits in
    critical = task carries a strong/critical dependency (risk flag)
 */
-const TASKS = [
+const BASE_TASKS = [
   /* ---------- EPIC 0 ---------- */
   {
     id: "0.1", epic: "E0", name: "Weekly UX + SME Sync",
@@ -589,7 +591,15 @@ const TASKS = [
   }
 ];
 
-/* Helpers shared by views */
+/* Mutable working copies. Populated by buildModel() in script.js from the
+   BASE_* arrays merged with the user's saved edits. Views read these. */
+let EPICS = [];
+let TASKS = [];
+
+/* Helpers shared by views (operate on the working copies) */
 const MONTH_INDEX = m => MONTHS.indexOf(m);
 const epicById = id => EPICS.find(e => e.id === id);
 const taskById = id => TASKS.find(t => t.id === id);
+
+/* Deep clone helper available to the model layer */
+const cloneDeep = obj => JSON.parse(JSON.stringify(obj));

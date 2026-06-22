@@ -84,6 +84,9 @@ html, body {
 .ghost-btn:hover { background: var(--bg); border-color: #cdd2d8; }
 .ghost-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ghost-btn.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.edit-btn { border-color: #d8b257; color: #8a5a00; background: #fffaf0; font-weight: 700; }
+.edit-btn:hover { background: #fff3da; border-color: #c9831f; }
+.edit-btn.on { background: #c9831f; color: #fff; border-color: #c9831f; }
 
 /* --------------------------- Dashboard ---------------------------- */
 .dashboard {
@@ -228,6 +231,11 @@ html, body {
 .status-dot.complete    { background: var(--st-done); }
 
 /* =======================  TIMELINE VIEW  ========================== */
+.tl-hint {
+  font-size: 12px; color: var(--muted);
+  margin: 0 0 10px; padding: 8px 12px;
+  background: #f2f6fb; border: 1px solid #dce6f3; border-radius: var(--radius-sm);
+}
 .timeline {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -300,19 +308,56 @@ html, body {
   height: 24px;
   border-radius: var(--radius-sm);
   display: flex; align-items: center;
-  padding: 0 9px;
   font-size: 11px; font-weight: 600; color: #fff;
-  cursor: pointer;
+  cursor: grab;
   box-shadow: 0 1px 2px rgba(0,0,0,.12);
-  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none; -webkit-user-select: none; touch-action: none;
 }
 .tl-bar:hover { filter: brightness(1.06); }
+.tl-bar.grabbing { cursor: grabbing; filter: brightness(1.1); box-shadow: 0 3px 10px rgba(0,0,0,.25); z-index: 5; }
+.tl-bar .bar-body {
+  flex: 1; min-width: 0; padding: 0 4px;
+  overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center;
+  pointer-events: none; /* let the bar handle the drag */
+}
 .tl-bar .bar-dep { margin-left: 6px; font-weight: 700; opacity: .85; }
+.tl-bar.moved { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3px rgba(0,0,0,.35); }
+
+/* resize handles at each edge */
+.tl-bar .bar-handle {
+  width: 9px; align-self: stretch; flex-shrink: 0;
+  cursor: ew-resize;
+  border-radius: var(--radius-sm);
+  position: relative;
+}
+.tl-bar .bar-handle::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px; height: 11px; border-radius: 2px;
+  background: rgba(255,255,255,.55);
+  opacity: 0; transition: opacity .12s;
+}
+.tl-bar:hover .bar-handle::after { opacity: 1; }
+
+/* edited badge */
+.moved-flag {
+  display: inline-flex; align-items: center;
+  font-size: 10px; font-weight: 700; letter-spacing: .03em;
+  color: #8a5a00; background: #fff3da; border: 1px solid #f0dcae;
+  padding: 1px 6px; border-radius: 99px;
+}
+
+/* while dragging, suppress hover noise and text selection across the page */
+body.dragging-bar { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+body.dragging-bar .tl-row:hover { background: transparent; }
 
 /* compact mode */
 body.compact .tl-label .tl-meta { display: none; }
 body.compact .tl-row { min-height: 34px; }
 body.compact .tl-bar { height: 18px; font-size: 10px; }
+body.compact .tl-bar .bar-handle { width: 8px; }
 
 /* =====================  SWIMLANE VIEW  ============================ */
 .swimlanes { display: flex; flex-direction: column; gap: 16px; }
@@ -534,6 +579,80 @@ body.compact .tl-bar { height: 18px; font-size: 10px; }
 .status-pick-btn.active.in-progress { background: var(--st-prog); color: #fff; border-color: var(--st-prog); }
 .status-pick-btn.active.complete    { background: var(--st-done); color: #fff; border-color: var(--st-done); }
 .dep-link { color: #2a4d8f; cursor: pointer; font-weight: 600; text-decoration: underline; }
+
+/* ===========================  EDITING  ========================== */
+.edit-input {
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 6px 8px; font-size: 13px; font-family: inherit; color: var(--ink);
+  background: #fff; width: 100%; resize: none; line-height: 1.4;
+}
+.edit-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.edit-input.inline { width: auto; min-width: 120px; padding: 3px 7px; font-size: 12px; font-weight: 600; }
+.edit-title-input {
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 5px 9px; font-size: 19px; font-weight: 700; font-family: inherit;
+  width: 100%; color: var(--ink); background: #fffdf6; margin: 6px 0 4px;
+}
+.edit-title-input.epic { font-size: 15px; background: #fffdf6; }
+.edit-title-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ec-purpose-edit { width: 100%; margin: 4px 0; min-height: 34px; font-size: 13px; color: var(--ink-soft); }
+
+.role-pick { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; margin-right: 8px; cursor: pointer; }
+
+/* editable lists (deliverables / acceptance criteria) */
+.edit-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.edit-list-row { display: flex; gap: 6px; align-items: flex-start; }
+.edit-list-row .edit-input { flex: 1; min-height: 60px; padding: 8px 10px; }
+.mini-del {
+  flex-shrink: 0; width: 26px; height: 30px; border: 1px solid var(--line);
+  background: #fff; color: var(--warn); border-radius: var(--radius-sm);
+  font-size: 16px; line-height: 1; cursor: pointer;
+}
+.mini-del:hover { background: var(--warn-bg); border-color: #f2d2dd; }
+.add-line-btn {
+  align-self: flex-start; background: var(--bg); border: 1px dashed #c4ccd4;
+  color: var(--ink-soft); border-radius: var(--radius-sm);
+  padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.add-line-btn:hover { background: #eef1f4; border-color: var(--muted); }
+.epic-add-task { margin: 10px 4px 2px; }
+
+/* prominent primary action button */
+.primary-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--ink); color: #fff; border: 1px solid var(--ink);
+  border-radius: var(--radius-sm); padding: 9px 16px;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  box-shadow: var(--shadow);
+}
+.primary-btn:hover { background: #000; }
+.primary-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* edit-mode toolbar at the top of the Epics view */
+.edit-toolbar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  background: #fffaf0; border: 1px solid #f0dcae; border-radius: var(--radius);
+  padding: 12px 16px; margin-bottom: 14px;
+}
+.edit-toolbar-msg { flex: 1; min-width: 240px; font-size: 13px; color: var(--ink-soft); }
+.edit-toolbar .primary-btn { flex-shrink: 0; }
+.add-epic-btn {
+  display: block; width: 100%; margin-top: 4px;
+  background: var(--panel); border: 2px dashed #c4ccd4; color: var(--ink-soft);
+  border-radius: var(--radius); padding: 14px; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.add-epic-btn:hover { background: #fbfcfd; border-color: var(--muted); color: var(--ink); }
+.danger-btn {
+  background: #fff; border: 1px solid #f0c6d2; color: var(--warn);
+  border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.danger-btn:hover { background: var(--warn-bg); }
+.epic-del { align-self: flex-start; margin-top: 2px; }
+.detail-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* subtle hint that edit mode is on */
+body.edit-mode .app-header { box-shadow: inset 0 -3px 0 0 #c9831f33; }
+body.edit-mode .epic-card-head { background: #fffef9; }
 
 .hidden { display: none !important; }
 
