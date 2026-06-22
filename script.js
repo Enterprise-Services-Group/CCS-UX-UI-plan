@@ -586,6 +586,7 @@ function renderCurrentView() {
 function render() {
   renderDashboard();
   renderCurrentView();
+  syncHeaderHeight();
 }
 
 /* ============================== CSV ============================= */
@@ -608,6 +609,13 @@ function exportCSV() {
 function csvCell(v) {
   v = String(v);
   return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+}
+
+/* Keep the sticky timeline month-header offset in sync with the
+   (variable-height) app header so the months stay pinned below it. */
+function syncHeaderHeight() {
+  const h = document.querySelector(".app-header");
+  if (h) document.documentElement.style.setProperty("--header-h", h.offsetHeight + "px");
 }
 
 /* ============================== INIT =========================== */
@@ -662,6 +670,10 @@ function init() {
   document.getElementById("detail-close").onclick = closeDetail;
   document.getElementById("overlay").onclick = closeDetail;
   document.addEventListener("keydown", e => { if (e.key === "Escape") closeDetail(); });
+
+  // keep the pinned month-header offset accurate
+  syncHeaderHeight();
+  window.addEventListener("resize", syncHeaderHeight);
 
   render();
 }
