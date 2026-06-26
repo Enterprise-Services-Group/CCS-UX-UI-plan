@@ -681,10 +681,171 @@ body.edit-mode .epic-card-head { background: #fffef9; }
   body.print-all .epic-tasks { display: block !important; }
 }
 
+/* ==================================================================
+   V2 ADDITIONS — phase split, exec summary, principles, capability
+   matrix, removed list, heat maps. Builds on the V1 design above.
+   ================================================================== */
+
+:root {
+  --phase-2026: #2563B5;
+  --phase-2026-soft: #e9f0fb;
+  --phase-2027: #9A4DBC;
+  --phase-2027-soft: #f3ecf9;
+}
+
+.v2-badge {
+  display: inline-block; vertical-align: middle;
+  font-size: 11px; font-weight: 800; letter-spacing: .04em;
+  background: var(--ink); color: #fff; border-radius: 5px;
+  padding: 1px 6px; margin-left: 6px;
+}
+
+/* timeline grid is now driven by --months (7 for 2026, 6 for 2027) */
+.tl-head, .tl-row { grid-template-columns: 300px repeat(var(--months, 6), 1fr); }
+.tl-grid { grid-template-columns: repeat(var(--months, 6), 1fr); }
+.lane-grid { grid-template-columns: repeat(var(--months, 6), 1fr); }
+
+/* ----- phase banner shown atop the 2026 / 2027 sections ----- */
+.phase-banner {
+  border-radius: var(--radius); padding: 16px 20px; margin-bottom: 18px;
+  color: #fff; position: relative; overflow: hidden;
+}
+.phase-banner.p2026 { background: linear-gradient(110deg, #2563B5, #3E7CB1); }
+.phase-banner.p2027 { background: linear-gradient(110deg, #9A4DBC, #B23A6F); }
+.phase-banner h2 { margin: 0 0 4px; font-size: 19px; }
+.phase-banner .pb-window { font-size: 13px; opacity: .92; font-weight: 600; }
+.phase-banner .pb-grid { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 12px; }
+.phase-banner .pb-item { font-size: 12.5px; }
+.phase-banner .pb-item b { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; opacity: .8; margin-bottom: 2px; font-weight: 700; }
+.phase-banner .pb-msg {
+  margin-top: 12px; font-size: 13px; font-weight: 600;
+  background: rgba(255,255,255,.15); border-radius: var(--radius-sm); padding: 8px 12px;
+}
+
+/* ----- executive summary ----- */
+.exec-hero {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 20px 22px; margin-bottom: 18px;
+}
+.exec-hero h2 { margin: 0 0 6px; font-size: 18px; }
+.exec-flow { display: flex; align-items: stretch; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.exec-phase {
+  flex: 1 1 320px; border-radius: var(--radius); padding: 16px; color: #fff;
+}
+.exec-phase.p2026 { background: linear-gradient(135deg, #2563B5, #3E7CB1); }
+.exec-phase.p2027 { background: linear-gradient(135deg, #9A4DBC, #B23A6F); }
+.exec-phase .ep-year { font-size: 26px; font-weight: 800; }
+.exec-phase .ep-label { font-size: 13px; font-weight: 700; opacity: .95; }
+.exec-phase .ep-window { font-size: 12px; opacity: .85; margin: 4px 0 8px; }
+.exec-phase .ep-goal { font-size: 13px; line-height: 1.45; }
+.exec-arrow { display: flex; align-items: center; font-size: 26px; color: var(--muted); font-weight: 800; }
+
+.summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.sum-card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px 18px; border-top: 4px solid var(--muted);
+}
+.sum-card.phase2026 { border-top-color: var(--phase-2026); }
+.sum-card.phase2027 { border-top-color: var(--phase-2027); }
+.sum-card.risk { border-top-color: var(--warn); }
+.sum-card.dep  { border-top-color: var(--st-prog); }
+.sum-card h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+.sum-card .sum-val { font-size: 18px; font-weight: 700; line-height: 1.25; }
+
+/* principles columns */
+.principles-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+.principles-col {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+}
+.principles-col .pc-head { padding: 11px 16px; color: #fff; font-weight: 700; font-size: 14px; }
+.principles-col.p2026 .pc-head { background: var(--phase-2026); }
+.principles-col.p2027 .pc-head { background: var(--phase-2027); }
+.principles-col ul { margin: 0; padding: 12px 16px 14px 32px; }
+.principles-col li { margin-bottom: 7px; font-size: 13px; }
+
+/* "Not required for 2026" struck list */
+.removed-block {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px 18px; margin-bottom: 18px;
+}
+.removed-block h3 { margin: 0 0 4px; font-size: 15px; }
+.removed-block .rb-sub { color: var(--muted); font-size: 12.5px; margin-bottom: 12px; }
+.removed-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.removed-item {
+  display: flex; align-items: center; gap: 8px; font-size: 13px;
+  color: var(--muted); text-decoration: line-through; text-decoration-color: #d99;
+  background: #fbf3f4; border: 1px solid #f1dada; border-radius: var(--radius-sm); padding: 7px 10px;
+}
+.removed-item::before { content: "✕"; color: var(--warn); font-weight: 800; text-decoration: none; }
+
+/* Blacklight capability matrix */
+.cap-matrix { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 8px 0 18px; }
+.cap-col {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+}
+.cap-col .cap-head { padding: 9px 12px; font-weight: 700; font-size: 12.5px; color: #fff; }
+.cap-col[data-bucket="Out of Box"]   .cap-head { background: #2e8b57; }
+.cap-col[data-bucket="Configure"]    .cap-head { background: #c9831f; }
+.cap-col[data-bucket="Custom Build"] .cap-head { background: #c2476a; }
+.cap-col[data-bucket="Future"]       .cap-head { background: #5b6b7b; }
+.cap-col ul { margin: 0; padding: 8px 12px 10px; list-style: none; }
+.cap-col li { font-size: 12.5px; padding: 3px 0; border-bottom: 1px solid var(--line-soft); }
+.cap-col li:last-child { border-bottom: none; }
+
+/* heat maps (risk / dependency) */
+.heat-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+.heat-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.heat-card h4 { margin: 0 0 10px; font-size: 13px; }
+.heat-rows { display: flex; flex-direction: column; gap: 6px; }
+.heat-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.heat-row .heat-name { flex: 1; }
+.heat-pill {
+  font-size: 10.5px; font-weight: 700; border-radius: 99px; padding: 2px 9px; color: #fff;
+}
+.heat-high { background: var(--warn); }
+.heat-med  { background: var(--st-prog); }
+.heat-low  { background: #8a9aa7; }
+
+/* phase divider chip in dependency view */
+.phase-chip {
+  display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .04em;
+  border-radius: 99px; padding: 3px 12px; color: #fff; margin: 6px 0;
+}
+.phase-chip.p2026 { background: var(--phase-2026); }
+.phase-chip.p2027 { background: var(--phase-2027); }
+.dep-bridge { text-align: center; color: var(--muted); font-weight: 700; font-size: 13px; padding: 6px 0; }
+
+/* "why this matters" rationale text */
+.why-text { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); }
+.detail-section h4 + .why-text { margin-top: 2px; }
+.epic-why {
+  background: #f7f9fc; border: 1px solid var(--line-soft); border-left: 3px solid var(--epic-colour, #ccc);
+  border-radius: var(--radius-sm); padding: 10px 12px; margin: 8px 0 12px;
+}
+.epic-why h5 {
+  margin: 0 0 5px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); font-weight: 700;
+}
+.epic-why p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink-soft); }
+
+/* small section heading used across V2 views */
+.v2-section-title { font-size: 16px; font-weight: 700; margin: 22px 0 12px; display: flex; align-items: center; gap: 10px; }
+.v2-section-title:first-child { margin-top: 0; }
+
+/* executive mode hides task-level detail for a cleaner stakeholder read */
+body.exec-mode .epic-tasks,
+body.exec-mode .tl-hint,
+body.exec-mode .filter-bar { display: none; }
+body.exec-mode .epic-card-head { cursor: default; }
+
 /* --------------------------- Responsive --------------------------- */
+@media (max-width: 980px) {
+  .principles-wrap, .heat-wrap { grid-template-columns: 1fr; }
+  .cap-matrix { grid-template-columns: 1fr 1fr; }
+}
 @media (max-width: 880px) {
-  .tl-head, .tl-row { grid-template-columns: 180px repeat(6, 1fr); }
   .lane-grid { grid-template-columns: 1fr; }
   .lane-month { border-left: none; border-top: 1px solid var(--line-soft); }
   .lane-month:first-child { border-top: none; }
+  .exec-arrow { transform: rotate(90deg); }
 }

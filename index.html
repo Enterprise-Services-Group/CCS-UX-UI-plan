@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CCS UX/UI Delivery Plan — June to November 2026</title>
+  <title>CCS Delivery Planner V2 — 2026 Internal MVP → 2027 Public Launch</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="app-header">
     <div class="header-main">
       <div class="header-title">
-        <h1>CCS UX/UI Delivery Plan</h1>
-        <p class="subtitle">June to November 2026 &middot; UX/UI, SME Content &amp; Development delivery</p>
+        <h1>CCS Delivery Planner <span class="v2-badge">V2</span></h1>
+        <p class="subtitle">2026 Internal MVP &nbsp;→&nbsp; 2027 Public Launch</p>
       </div>
       <div class="header-actions">
+        <button id="btn-mode" class="ghost-btn" title="Switch between executive and detailed views">Detailed mode</button>
         <button id="btn-edit" class="ghost-btn edit-btn" title="Turn editing on to add, edit or delete epics and tasks">✎ Edit / Add</button>
-        <button id="btn-compact" class="ghost-btn" title="Toggle compact / detailed view">Compact view</button>
         <button id="btn-print" class="ghost-btn" title="Print-friendly view">Print</button>
         <button id="btn-csv" class="ghost-btn" title="Export tasks to CSV">Export CSV</button>
         <button id="btn-save-plan" class="ghost-btn" title="Save the edited plan to a JSON file">Save plan</button>
@@ -25,21 +25,18 @@
       </div>
     </div>
 
-    <!-- Progress dashboard -->
-    <section id="dashboard" class="dashboard" aria-label="Progress dashboard"></section>
-
-    <!-- View switcher -->
-    <nav class="view-switcher" aria-label="Views">
-      <button class="view-tab active" data-view="timeline">Timeline</button>
-      <button class="view-tab" data-view="swimlanes">Role Swimlanes</button>
-      <button class="view-tab" data-view="epics">Epics</button>
+    <!-- Section switcher -->
+    <nav class="view-switcher" aria-label="Sections">
+      <button class="view-tab active" data-view="summary">Executive Summary</button>
+      <button class="view-tab" data-view="mvp2026">2026 Internal MVP</button>
+      <button class="view-tab" data-view="public2027">2027 Public Launch</button>
       <button class="view-tab" data-view="dependencies">Dependencies</button>
-      <button class="view-tab" data-view="deliverables">Deliverables</button>
+      <button class="view-tab" data-view="artefacts">Artefacts</button>
       <button class="view-tab" data-view="jira">Jira Export</button>
     </nav>
 
-    <!-- Filter bar -->
-    <div class="filter-bar">
+    <!-- Filter bar (hidden on the summary view) -->
+    <div class="filter-bar" id="filter-bar">
       <div class="filter-group">
         <label for="filter-search">Search</label>
         <input type="search" id="filter-search" placeholder="Search tasks, deliverables…" />
@@ -47,29 +44,11 @@
       <div class="filter-group">
         <label for="filter-role">Role</label>
         <select id="filter-role">
-          <option value="all">All roles</option>
+          <option value="all">All workstreams</option>
           <option value="ux">UX/UI</option>
           <option value="sme">Collection Access SME (Alli)</option>
           <option value="dev">Development Team</option>
-          <option value="gov">Shared Governance</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="filter-month">Month</label>
-        <select id="filter-month">
-          <option value="all">All months</option>
-          <option value="June">June</option>
-          <option value="July">July</option>
-          <option value="August">August</option>
-          <option value="September">September</option>
-          <option value="October">October</option>
-          <option value="November">November</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="filter-epic">Epic</label>
-        <select id="filter-epic">
-          <option value="all">All epics</option>
+          <option value="gov">Governance</option>
         </select>
       </div>
       <div class="filter-group status-toggles" role="group" aria-label="Status visibility">
@@ -90,7 +69,7 @@
   </aside>
 
   <footer class="app-footer">
-    <span>CCS UX/UI Delivery Plan &middot; Planning, stakeholder alignment &amp; Jira backlog preparation</span>
+    <span>CCS Delivery Planner V2 &middot; Two distinct delivery phases connected by a successful internal MVP</span>
   </footer>
 
   <script src="data.js"></script>
